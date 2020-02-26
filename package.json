@@ -1,7 +1,7 @@
 {
-  "name": "serverless-var-resolvers",
+  "name": "serverless-vars-resolver",
   "version": "1.0.1",
-  "description": "resolve aws resources into vars in serverless.yaml",
+  "description": "resolve aws resources into vars in serverless yaml",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -12,9 +12,11 @@
   },
   "keywords": [
     "aws",
-    "serverless"
+    "arn",
+    "resources",
+    "cloud"
   ],
-  "author": "Emanuel Rosal",
+  "author": "w4rlock",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/w4rlock/serverless-var-resolvers/issues"

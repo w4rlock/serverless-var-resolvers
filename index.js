@@ -2,11 +2,9 @@
 
 class ServerlessPlugin {
   constructor(serverless, options) {
-    this.logPreffix = '[ServerlessAwsUtils] - ';
+    this.logPreffix = '[ServerlessVarsResolver] - ';
     this.serverless = serverless;
     this.options = options;
-
-    this.log('ServerlessPlugin constructor');
 
 
     const region = serverless.providers.aws.getRegion() ;
@@ -110,7 +108,7 @@ class ServerlessPlugin {
    */
   async getHostedZoneId(domainName) {
     let zoneId
-    this.debug(`Looking for host zone id  for domain ¨${domainName}¨...`);
+    this.log(`Looking for hosted-zone-id  for domain ¨${domainName}¨...`);
 
 
     try {

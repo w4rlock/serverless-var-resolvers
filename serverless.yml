@@ -24,13 +24,13 @@ custom:
   hostedZoneId: ${hostedZoneId:${self:custom.certName}}
 
 resources:
-	Resources:
-		StaticWebSiteBucket:
-			Type: 'AWS::S3::Bucket'
-			Properties:
-				AccessControl: Private
-				BucketName: '${self:custom.certificateArn}--aaa'
-				BucketName2: '${self:custom.hostedZoneId}--aaa'
-				WebsiteConfiguration:
-					IndexDocument: index.html
-					ErrorDocument: index.html
+  Resources:
+    StaticWebSiteBucket:
+      Type: 'AWS::S3::Bucket'
+      Properties:
+        AccessControl: Private
+        BucketName: '${self:custom.certificateArn}--aaa'
+        BucketName2: '${self:custom.hostedZoneId}--aaa'
+        WebsiteConfiguration:
+          IndexDocument: index.html
+          ErrorDocument: index.html
