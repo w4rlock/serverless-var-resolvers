@@ -1,0 +1,36 @@
+service: test-variables-resolvers
+
+provider:
+  name: aws
+  stage: 'dev'
+  region: 'us-east-1'
+
+
+################################################################################
+# PLUGINS
+################################################################################
+
+plugins:
+  - serverless-aws-utils
+
+
+################################################################################
+# PLUGINS CONFIGURATION
+################################################################################
+
+custom:
+  certName: 'dev.some_app.us-east-1.domain.com'
+  certificateArn: ${certificate:${self:custom.certName}}
+  hostedZoneId: ${hostedZoneId:${self:custom.certName}}
+
+resources:
+	Resources:
+		StaticWebSiteBucket:
+			Type: 'AWS::S3::Bucket'
+			Properties:
+				AccessControl: Private
+				BucketName: '${self:custom.certificateArn}--aaa'
+				BucketName2: '${self:custom.hostedZoneId}--aaa'
+				WebsiteConfiguration:
+					IndexDocument: index.html
+					ErrorDocument: index.html
