@@ -1,53 +1,71 @@
 'use strict';
 
+const _ = require('lodash');
+const https = require('https');
+const url = require('url');
+
+const LOG_PREFFIX = '[ServerlessVarsResolver] - ';
+
+
+
 class ServerlessPlugin {
   constructor(serverless, options) {
-    this.logPreffix = '[ServerlessVarsResolver] - ';
     this.serverless = serverless;
     this.options = options;
+    this.vaultOnceRequest = {};
+
+    const _resolver = resolver => ({
+      resolver,
+      serviceName: 'VAULT',
+      isDisabledAtPrepopulation: true
+    });
 
 
-    const region = serverless.providers.aws.getRegion() ;
-    const credentials = serverless.providers.aws.getCredentials()
-    const acmCredentials = { ...credentials, region }
-
-
-    /**
-     * aws services
-     */
-    this.awsAcm = new serverless.providers.aws.sdk.ACM(acmCredentials);
-    this.awsRoute53 = new serverless.providers.aws.sdk.Route53(credentials);
-
-
-    /**
-     *
-     * Variables resolvers in serverless.yaml
-     *
-     * ${kind:some_obj_or_value}
-     *
-     */
     this.variableResolvers = {
-      certificate: {
-        resolver: this.resolveVarCertificateArn.bind(this),
-        isDisabledAtPrepopulation: true,
-        serviceName: 'depends before resolve'
-      },
-      hostedZoneId: {
-        resolver: this.resolveVarHostedZoneId.bind(this),
-        isDisabledAtPrepopulation: true,
-        serviceName: 'depends before resolve'
-      }
+      vaultcred: _resolver(this.resolveCredentialsVar.bind(this)),
+      certificate: _resolver(this.resolveVarCertificateArn.bind(this)),
+      hostedZoneId: _resolver(this.resolveVarHostedZoneId.bind(this))
     }
   }
+
+
+
+  /**
+   * Cachiing credentials
+   *
+   */
+  async getAwsCredentials() {
+    if (!_.isEmpty(this.vaultOnceRequest.creds)) {
+      return this.vaultOnceRequest.creds;
+    }
+
+    const resp = await this.vaultRequest();
+    this.setEnvCredentialVars(resp);
+
+    const region = this.serverless.providers.aws.getRegion() ;
+    const creds = this.serverless.providers.aws.getCredentials()
+
+    if (_.isEmpty(creds)) {
+      throw new Error('serverless credentials is empty');
+    }
+
+    this.vaultOnceRequest.creds = { ...creds, region }
+    return this.vaultOnceRequest.creds;
+  }
+
+
 
 
   /**
    * Log to console
    * @param msg:string message to log
    */
-  log(msg) {
-    this.serverless.cli.log(this.logPreffix + msg);
+  log(entity) {
+    this.serverless.cli.log(
+      LOG_PREFFIX + (_.isObject(entity) ? JSON.stringify(entity) : entity)
+    );
   }
+
 
 
 
@@ -71,12 +89,16 @@ class ServerlessPlugin {
    */
   async getCertificateArn(certName) {
     let certificateArn
-    this.log(`Looking for arn ssl certificate for domain ¨${certName}¨...`);
+
+    this.initialize();
+
+    const creds = await this.getAwsCredentials();
+    const awsAcm = new this.serverless.providers.aws.sdk.ACM(creds);
+    this.debug(`Fetching certificate arn id for certificate name "${certName}"`);
 
 
     try {
-
-      const raw_certs = await this.awsAcm.listCertificates({ }).promise();
+      const raw_certs = await awsAcm.listCertificates({}).promise();
       const certs = raw_certs.CertificateSummaryList;
       const cert = certs.find(crt => crt.DomainName.includes(certName));
 
@@ -84,7 +106,6 @@ class ServerlessPlugin {
         certificateArn = cert.CertificateArn
         this.log(`SSL Certificate arn: ${certificateArn}`);
       }
-
     }
     catch(err) {
       this.debug(err);
@@ -108,7 +129,12 @@ class ServerlessPlugin {
    */
   async getHostedZoneId(domainName) {
     let zoneId
-    this.log(`Looking for hosted-zone-id  for domain ¨${domainName}¨...`);
+
+    this.initialize();
+
+    const creds = await this.getAwsCredentials();
+    this.awsRoute53 = new this.serverless.providers.aws.sdk.Route53(creds);
+    this.debug(`Fetching hosted zone id for domain name "${domainName}"`);
 
 
     try {
@@ -130,6 +156,137 @@ class ServerlessPlugin {
 
     this.log("Zone id: " + zoneId);
     return zoneId;
+  }
+
+
+
+
+
+
+
+  getConfValue(key, required = true, default_value = undefined) {
+    const fromEnv = k => process.env[k];
+    const fromCmdArg = k => this.options[k];
+    const fromYaml = k => _.get(this.serverless, `service.custom.${k}`);
+
+    let val = fromCmdArg(`vault-${key}`);
+    if (val) return val;
+
+    val = fromEnv(`VAULT_${key}`.toUpperCase());
+    if (val) return val;
+
+    val = fromYaml(`vault.${key}`);
+    if (val) return val;
+
+    if (required && !default_value) {
+      throw new Error(`property value for ${key} is missing.`)
+    }
+
+    return default_value;
+  }
+
+
+
+
+  loadConfFromVarsResolvers(vaultFullUrl) {
+    const o_uri = url.parse(vaultFullUrl);
+    this.cfg = {}
+
+    this.cfg.host = o_uri.host;
+    this.cfg.path = o_uri.path;
+    this.cfg.port = o_uri.port || 443;
+
+    this.cfg.token = this.getConfValue('token', false,  process.env.TOKEN)
+    this.cfg.jsonAccessPath = this.getConfValue('jsonaccesspath', false, 'data.aws_access_key_id')
+    this.cfg.jsonSecretPath = this.getConfValue('jsonsecretpath', false, 'data.aws_secret_access_key')
+  }
+
+
+
+
+
+  initialize() {
+    this.cfg = {}
+    this.cfg.host = this.getConfValue('host');
+    this.cfg.path = this.getConfValue('path');
+    this.cfg.port = this.getConfValue('port', false, 443);
+    this.cfg.token = this.getConfValue('token', false, process.env.TOKEN)
+
+    //vault json responses key path configurables
+    this.cfg.jsonAccessPath = this.getConfValue('jsonaccesspath', false, 'data.aws_access_key_id')
+    this.cfg.jsonSecretPath = this.getConfValue('jsonsecretpath', false, 'data.aws_secret_access_key')
+
+    if (!this.cfg.token) throw new Error('vault token is missing');
+  }
+
+
+
+
+  vaultRequest() {
+    if (!_.isEmpty(this.vaultOnceRequest)) {
+      return this.vaultOnceRequest.promise;
+    }
+
+
+    this.vaultOnceRequest.promise = new Promise((resolve, reject) => {
+      const { host, path, token, port } = this.cfg;
+      const opts = {
+        port,
+        path,
+        hostname: host,
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Vault-Token': token,
+        },
+      };
+
+      this.log(`Fetching vault creds "${path}"`);
+      const req = https.request(opts, res => {
+        res.on('data', d => {
+          const resp = JSON.parse(d);
+          if (_.isEmpty(resp)) {
+            reject('vault response is empty');
+          }
+          else {
+            resolve(resp);
+          }
+        });
+      });
+
+      req.on('error', error => reject(error));
+      req.end();
+    });
+
+    return this.vaultOnceRequest.promise;
+  }
+
+
+
+
+
+  setEnvCredentialVars(httpResponse) {
+    process.env.AWS_ACCESS_KEY_ID = _.get(httpResponse, this.cfg.jsonAccessPath);
+    process.env.AWS_SECRET_ACCESS_KEY = _.get(httpResponse, this.cfg.jsonSecretPath);
+    this.log('Environment vault credentials setted');
+  }
+
+
+
+
+
+  async resolveCredentialsVar(src) {
+    try {
+      let [ kindvar, protocol, vaultUrl ] = src.split(':');
+      this.log(protocol + ':' + vaultUrl);
+      this.loadConfFromVarsResolvers(`${protocol}:${vaultUrl}`);
+    }
+    catch(err) {
+      throw new Error('invalid url value for vault cred ex: https://vault.domain.com/v1/secret/mi-secret')
+    }
+
+    const response = await this.vaultRequest();
+    this.setEnvCredentialVars(response);
   }
 
 

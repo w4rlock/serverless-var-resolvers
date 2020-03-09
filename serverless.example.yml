@@ -19,6 +19,10 @@ plugins:
 ################################################################################
 
 custom:
+  vault:
+    key: key-preffix-${self:custom.provider.stage}
+    path: /v1/secret/${self:custom.vault.key}
+    host: "vault.corp.aws"
   certName: 'dev.some_app.us-east-1.domain.com'
   certificateArn: ${certificate:${self:custom.certName}}
   hostedZoneId: ${hostedZoneId:${self:custom.certName}}
