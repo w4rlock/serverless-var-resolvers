@@ -12,7 +12,14 @@ class ServerlessPlugin {
   constructor(serverless, options) {
     this.serverless = serverless;
     this.options = options;
-    this.vaultOnceRequest = {};
+    this.cachedVaultRequest = {};
+
+    let disabled = this.getConfValue('varsResolve.disabled', false);
+    if (disabled == 'true') {
+      this.log('plugin disabled');
+      return;
+    }
+
 
     const _resolver = resolver => ({
       resolver,
@@ -22,35 +29,47 @@ class ServerlessPlugin {
 
 
     this.variableResolvers = {
-      vaultcred: _resolver(this.resolveCredentialsVar.bind(this)),
       certificate: _resolver(this.resolveVarCertificateArn.bind(this)),
       hostedZoneId: _resolver(this.resolveVarHostedZoneId.bind(this))
     }
+
+
+
+  async safeResolveVaultCredentials() {
+    if (this.cachedVaultRequest.promise) {
+      return this.cachedVaultRequest.promise;
+    }
+
+    this.cachedVaultRequest.promise = new Promise(async (resolve, reject) => {
+      const resp = await this.vaultRequest(this.cfg);
+      this.setEnvCredentialVars(resp);
+
+      const region = this.serverless.providers.aws.getRegion() ;
+      const creds = this.serverless.providers.aws.getCredentials();
+
+      if (_.isEmpty(creds)) {
+        reject('serverless credentials is empty');
+      }
+      else {
+        this.cachedVaultRequest.creds = { ...creds, region }
+        resolve(this.cachedVaultRequest.creds);
+      }
+    });
+
+    return this.cachedVaultRequest.promise;
   }
-
-
 
   /**
    * Cachiing credentials
    *
    */
   async getAwsCredentials() {
-    if (!_.isEmpty(this.vaultOnceRequest.creds)) {
-      return this.vaultOnceRequest.creds;
+    if (!_.isEmpty(this.cachedVaultRequest.creds)) {
+      return this.cachedVaultRequest.creds;
     }
 
-    const resp = await this.vaultRequest();
-    this.setEnvCredentialVars(resp);
-
-    const region = this.serverless.providers.aws.getRegion() ;
-    const creds = this.serverless.providers.aws.getCredentials()
-
-    if (_.isEmpty(creds)) {
-      throw new Error('serverless credentials is empty');
-    }
-
-    this.vaultOnceRequest.creds = { ...creds, region }
-    return this.vaultOnceRequest.creds;
+    const resp = await this.safeResolveVaultCredentials();
+    return resp;
   }
 
 
@@ -188,23 +207,6 @@ class ServerlessPlugin {
 
 
 
-  loadConfFromVarsResolvers(vaultFullUrl) {
-    const o_uri = url.parse(vaultFullUrl);
-    this.cfg = {}
-
-    this.cfg.host = o_uri.host;
-    this.cfg.path = o_uri.path;
-    this.cfg.port = o_uri.port || 443;
-
-    this.cfg.token = this.getConfValue('token', false,  process.env.TOKEN)
-    this.cfg.jsonAccessPath = this.getConfValue('jsonaccesspath', false, 'data.aws_access_key_id')
-    this.cfg.jsonSecretPath = this.getConfValue('jsonsecretpath', false, 'data.aws_secret_access_key')
-  }
-
-
-
-
-
   initialize() {
     this.cfg = {}
     this.cfg.host = this.getConfValue('host');
@@ -222,14 +224,9 @@ class ServerlessPlugin {
 
 
 
-  vaultRequest() {
-    if (!_.isEmpty(this.vaultOnceRequest)) {
-      return this.vaultOnceRequest.promise;
-    }
-
-
-    this.vaultOnceRequest.promise = new Promise((resolve, reject) => {
-      const { host, path, token, port } = this.cfg;
+  vaultRequest(config) {
+    return new Promise((resolve, reject) => {
+      const { host, path, token, port } = config;
       const opts = {
         port,
         path,
@@ -257,8 +254,6 @@ class ServerlessPlugin {
       req.on('error', error => reject(error));
       req.end();
     });
-
-    return this.vaultOnceRequest.promise;
   }
 
 
@@ -273,21 +268,6 @@ class ServerlessPlugin {
 
 
 
-
-
-  async resolveCredentialsVar(src) {
-    try {
-      let [ kindvar, protocol, vaultUrl ] = src.split(':');
-      this.log(protocol + ':' + vaultUrl);
-      this.loadConfFromVarsResolvers(`${protocol}:${vaultUrl}`);
-    }
-    catch(err) {
-      throw new Error('invalid url value for vault cred ex: https://vault.domain.com/v1/secret/mi-secret')
-    }
-
-    const response = await this.vaultRequest();
-    this.setEnvCredentialVars(response);
-  }
 
 
   /**
