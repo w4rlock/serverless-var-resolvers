@@ -1,5 +1,3 @@
-'use strict';
-
 const _ = require('lodash');
 const https = require('https');
 
@@ -11,21 +9,23 @@ class ServerlessPlugin {
     this.options = options;
     this.cachedVaultRequest = {};
 
-    let disabled = this.getConfValue('varsResolve.disabled', false);
-    if (disabled == 'true') {
+    const disabled = this.getConfValue('varsResolve.disabled', false);
+    if (disabled) {
       this.log('plugin disabled');
       return;
     }
 
-    const _resolver = resolver => ({
-      resolver,
-      serviceName: 'VAULT',
-      isDisabledAtPrepopulation: true,
-    });
+    const createResolver = (resolver) => {
+      return {
+        resolver,
+        serviceName: 'VAULT',
+        isDisabledAtPrepopulation: true,
+      };
+    };
 
     this.variableResolvers = {
-      certificate: _resolver(this.resolveVarCertificateArn.bind(this)),
-      hostedZoneId: _resolver(this.resolveVarHostedZoneId.bind(this)),
+      certificate: createResolver(this.resolveVarCertificateArn.bind(this)),
+      hostedZoneId: createResolver(this.resolveVarHostedZoneId.bind(this)),
     };
   }
 
@@ -35,14 +35,14 @@ class ServerlessPlugin {
     }
 
     this.cachedVaultRequest.promise = new Promise((resolve, reject) => {
-      this.vaultRequest(this.cfg).then(resp => {
+      this.vaultRequest(this.cfg).then((resp) => {
         this.setEnvCredentialVars(resp);
 
         const region = this.serverless.providers.aws.getRegion();
         const creds = this.serverless.providers.aws.getCredentials();
 
         if (_.isEmpty(creds)) {
-          reject('serverless credentials is empty');
+          reject(new Error('serverless credentials is empty'));
         } else {
           this.cachedVaultRequest.creds = { ...creds, region };
           resolve(this.cachedVaultRequest.creds);
@@ -104,9 +104,9 @@ class ServerlessPlugin {
     );
 
     try {
-      const raw_certs = await awsAcm.listCertificates({}).promise();
-      const certs = raw_certs.CertificateSummaryList;
-      const cert = certs.find(crt => crt.DomainName.includes(certName));
+      const rawCerts = await awsAcm.listCertificates({}).promise();
+      const certs = rawCerts.CertificateSummaryList;
+      const cert = certs.find((crt) => crt.DomainName.includes(certName));
 
       if (cert) {
         certificateArn = cert.CertificateArn;
@@ -141,10 +141,10 @@ class ServerlessPlugin {
 
     try {
       const zones = await this.awsRoute53.listHostedZones({}).promise();
-      const hzone = zones.HostedZones.find(z => z.Name.includes(domainName));
+      const hzone = zones.HostedZones.find((z) => z.Name.includes(domainName));
 
       if (hzone) {
-        zoneId = hzone.Id.split('/')[2];
+        [, , zoneId] = hzone.Id.split('/');
       }
     } catch (err) {
       this.debug(err);
@@ -155,14 +155,14 @@ class ServerlessPlugin {
       throw new Error('zone not found');
     }
 
-    this.log('Zone id: ' + zoneId);
+    this.log(`Zone id: ${zoneId}`);
     return zoneId;
   }
 
-  getConfValue(key, required = true, default_value = undefined) {
-    const fromEnv = k => process.env[k];
-    const fromCmdArg = k => this.options[k];
-    const fromYaml = k => _.get(this.serverless, `service.custom.${k}`);
+  getConfValue(key, required = true, defaultValue = undefined) {
+    const fromEnv = (k) => process.env[k];
+    const fromCmdArg = (k) => this.options[k];
+    const fromYaml = (k) => _.get(this.serverless, `service.custom.${k}`);
 
     let val = fromCmdArg(`vault-${key}`);
     if (val) return val;
@@ -173,11 +173,11 @@ class ServerlessPlugin {
     val = fromYaml(`vault.${key}`);
     if (val) return val;
 
-    if (required && !default_value) {
+    if (required && !defaultValue) {
       throw new Error(`property value for ${key} is missing.`);
     }
 
-    return default_value;
+    return defaultValue;
   }
 
   initialize() {
@@ -187,7 +187,7 @@ class ServerlessPlugin {
     this.cfg.port = this.getConfValue('port', false, 443);
     this.cfg.token = this.getConfValue('token', false, process.env.TOKEN);
 
-    //vault json responses key path configurables
+    // vault json responses key path configurables
     this.cfg.jsonAccessPath = this.getConfValue(
       'jsonaccesspath',
       false,
@@ -217,18 +217,18 @@ class ServerlessPlugin {
       };
 
       this.log(`Fetching vault creds "${path}"`);
-      const req = https.request(opts, res => {
-        res.on('data', d => {
+      const req = https.request(opts, (res) => {
+        res.on('data', (d) => {
           const resp = JSON.parse(d);
           if (_.isEmpty(resp)) {
-            reject('vault response is empty');
+            reject(new Error('vault response is empty'));
           } else {
             resolve(resp);
           }
         });
       });
 
-      req.on('error', error => reject(error));
+      req.on('error', (error) => reject(error));
       req.end();
     });
   }
@@ -254,7 +254,7 @@ class ServerlessPlugin {
    *
    */
   resolveVarCertificateArn(src) {
-    let certName = src.split(':')[1];
+    const certName = src.split(':')[1];
     return this.getCertificateArn(certName);
   }
 
@@ -267,7 +267,7 @@ class ServerlessPlugin {
    *
    */
   resolveVarHostedZoneId(src) {
-    let domainName = src.split(':')[1];
+    const domainName = src.split(':')[1];
     return this.getHostedZoneId(domainName);
   }
 }
