@@ -8,6 +8,8 @@
 
 serverless.yml
 commitlint.config.js
+.env.example.sh
+CHANGELOG.md
 
 test
 coverage

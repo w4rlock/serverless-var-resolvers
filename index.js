@@ -220,7 +220,10 @@ class ServerlessPlugin {
       const req = https.request(opts, (res) => {
         res.on('data', (d) => {
           const resp = JSON.parse(d);
-          if (_.isEmpty(resp)) {
+          const key = _.get(resp, this.cfg.jsonAccessPath);
+          const secret = _.get(resp, this.cfg.jsonSecretPath);
+
+          if (_.isEmpty(key) || _.isEmpty(secret)) {
             reject(new Error('vault response is empty'));
           } else {
             resolve(resp);
@@ -233,16 +236,15 @@ class ServerlessPlugin {
     });
   }
 
-  setEnvCredentialVars(httpResponse) {
-    process.env.AWS_ACCESS_KEY_ID = _.get(
-      httpResponse,
-      this.cfg.jsonAccessPath
-    );
-    process.env.AWS_SECRET_ACCESS_KEY = _.get(
-      httpResponse,
-      this.cfg.jsonSecretPath
-    );
-    this.log('Environment vault credentials setted');
+  setEnvCredentialVars(res) {
+    const key = _.get(res, this.cfg.jsonAccessPath);
+    const secret = _.get(res, this.cfg.jsonSecretPath);
+
+    process.env.AWS_ACCESS_KEY_ID = key;
+    process.env.AWS_SECRET_ACCESS_KEY = secret;
+
+    const protectkey = key.substr(0, 3) + '*'.repeat(9) + key.substr(-2);
+    this.log(`Vault credentials setted for ${protectkey} aws access key`);
   }
 
   /**
