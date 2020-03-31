@@ -9,8 +9,8 @@ class ServerlessPlugin {
     this.options = options;
     this.cachedVaultRequest = {};
 
-    const disabled = this.getConfValue('varsResolve.disabled', false);
-    if (disabled) {
+    const disabled = this.getConfValue('varsResolve.disabled', false, false);
+    if ((_.isBoolean(disabled) && disabled) || disabled === 'true') {
       this.log('plugin disabled');
       return;
     }
@@ -224,7 +224,7 @@ class ServerlessPlugin {
           const secret = _.get(resp, this.cfg.jsonSecretPath);
 
           if (_.isEmpty(key) || _.isEmpty(secret)) {
-            reject(new Error('vault response is empty'));
+            reject(new Error('wrong credentials or vault response is empty'));
           } else {
             resolve(resp);
           }
