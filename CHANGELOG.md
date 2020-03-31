@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.1.4](https://github.com/w4rlock/serverless-var-resolvers/compare/1.1.3...1.1.4) (2020-03-31)
+
+
+### Bug Fixes
+
+* serverless boolean with quotes support ([37b65a8](https://github.com/w4rlock/serverless-var-resolvers/commit/37b65a81b46f3597adc7882ba29eae2cd28359aa))
+
 ### [1.1.3](https://github.com/w4rlock/serverless-var-resolvers/compare/1.1.2...1.1.3) (2020-03-30)
 
 
