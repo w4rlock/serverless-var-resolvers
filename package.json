@@ -41,7 +41,9 @@
   },
   "homepage": "https://github.com/w4rlock/serverless-var-resolvers#readme",
   "dependencies": {
-    "lodash": "^4.17.15"
+    "base-serverless-plugin": "0.1.1",
+    "lodash": "^4.17.15",
+    "ramda": "^0.27.0"
   },
   "devDependencies": {
     "@commitlint/config-conventional": "^8.3.4",

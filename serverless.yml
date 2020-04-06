@@ -1,0 +1,35 @@
+service:
+  name: serverless-vars-resolver
+
+provider:
+  name: aws
+  stage: "develop"
+  region: "us-east-1"
+
+
+
+plugins:
+  modules:
+    - ./index
+    - serverless-vault-custom-plugin
+
+
+custom:
+  varsResolver:
+    before:
+      spawn: 'vault:auth:aws'
+
+  vault:
+    host: ${env:VAULT_HOST}
+    #debugQuery: true
+    auth:
+      roleId: ${env:VAULT_ROLEID}
+      secretId: ${env:VAULT_SECRETID}
+      useToken: ""
+    aws:
+      setEnvVars: true
+      secretPath: ${env:VAULT_AWS_SECRETPATH}
+
+  certName: ${env:CERTNAME}
+  rertificateArn: ${aws-acm-arn:${self:custom.certName}}
+  hostedZoneId: ${aws-zone-id:${self:custom.certName}}
