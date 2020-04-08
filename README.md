@@ -43,6 +43,6 @@ custom:
 
   domainName: dev.mi.aws.domain
 
-  rertificateArn: ${aws-acm-arn:${self:custom.domainName}}
-  hostedZoneId: ${aws-zone-id:${self:custom.domainName}}
+  certificateArn: ${aws-acm-arn:${self:custom.domainName}}
+  zoneId: ${aws-zone-id:${self:custom.domainName}}
 ```
