@@ -7,6 +7,12 @@
 npm i -E serverless-vars-resolver
 ```
 
+### Resolvers
+```yaml
+- Acm-Certifate-Arn
+- Route53-Hosted-Zone-Id
+```
+
 ### Usage
 
 ```yaml
