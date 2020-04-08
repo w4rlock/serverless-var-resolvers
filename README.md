@@ -16,7 +16,7 @@ plugins:
 
 custom:
   varsResolver:                                  # optional tag.
-    before:                                      # before var resolver
+    before:                                      # before start to resolve vars
       spawn: 'vault:auth:aws'                    # call vault plugin to set aws creds
 
   vault:                                         # optional
@@ -24,8 +24,9 @@ custom:
     debugQuery: false                            # log axios request
 
     auth:
-      roleId: ""
-      secretId: ""
+      roleId: ""                                 # take from ssm or something like that
+      secretId: ""                               # take from ssm or something like that
+
       # Or force request to use this token
       useToken: ""
 
@@ -33,8 +34,9 @@ custom:
       setEnvVars: true
       secretPath: /relative/path/to/aws/creds
 
-  certName: dev.mi.aws.domain
 
-  rertificateArn: ${aws-acm-arn:${self:custom.certName}}
-  hostedZoneId: ${aws-zone-id:${self:custom.certName}}
+  domainName: dev.mi.aws.domain
+
+  rertificateArn: ${aws-acm-arn:${self:custom.domainName}}
+  hostedZoneId: ${aws-zone-id:${self:custom.domainName}}
 ```
