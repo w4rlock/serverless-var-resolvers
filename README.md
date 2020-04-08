@@ -20,7 +20,7 @@ custom:
       spawn: 'vault:auth:aws'                    # call vault plugin to set aws creds
 
   vault:                                         # optional
-    host: ${env:VAULT_HOST}
+    host: 'vault.corp.com'
     debugQuery: false                            # log axios request
 
     auth:
