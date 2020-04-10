@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="Extends-var-resolver" src="https://user-images.githubusercontent.com/621906/78961176-fb82fb80-7ac6-11ea-8a0f-f3278cb9cc01.png">
+  <img height="320px" alt="Extends-var-resolver" src="https://user-images.githubusercontent.com/621906/78961176-fb82fb80-7ac6-11ea-8a0f-f3278cb9cc01.png">
 </p>
 
 ![serverless](http://public.serverless.com/badges/v3.svg)
