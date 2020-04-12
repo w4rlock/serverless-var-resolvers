@@ -1,3 +1,7 @@
+<p align="center">
+  <img height="320px" alt="Extends-var-resolver" src="https://user-images.githubusercontent.com/621906/78961176-fb82fb80-7ac6-11ea-8a0f-f3278cb9cc01.png">
+</p>
+
 ![serverless](http://public.serverless.com/badges/v3.svg)
 [![npm version](https://badge.fury.io/js/serverless-vars-resolver.svg)](https://badge.fury.io/js/serverless-vars-resolver)
 [![npm downloads](https://img.shields.io/npm/dt/serverless-vars-resolver.svg?style=flat)](https://www.npmjs.com/package/serverless-vars-resolver)
