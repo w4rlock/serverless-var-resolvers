@@ -26,6 +26,8 @@ class ServerlessVarsResolver extends BaseServerlessPlugin {
 
     // when you need to resolve many vars into serverless.yml
     // this should run once
+    // the idea is if need aws credentials run other plugin hook
+    // to set environment vars. aws_secret_key etc.
     this.initialize = _.once(() => {
       this.loadConfig();
       const bs = _.get(this.cfg, 'before.spawn');
