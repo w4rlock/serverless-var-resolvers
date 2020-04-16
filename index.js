@@ -1,7 +1,7 @@
 const _ = require('lodash');
 const BaseServerlessPlugin = require('base-serverless-plugin');
 
-const LOG_PREFFIX = '[ServerlessVarsResolver] - ';
+const LOG_PREFFIX = '[ServerlessVarsResolver] -';
 
 class ServerlessVarsResolver extends BaseServerlessPlugin {
   constructor(serverless, options) {
