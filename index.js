@@ -82,63 +82,108 @@ class ServerlessVarsResolver extends BaseServerlessPlugin {
 
   /**
    * Get aws arn for ACM SSL certificate
+   * Ex:
+   *   certName: dev.some.domain
+   *   certName: *.dev.some.domain
+   *   certName: new.poc.dev.some.domain
    *
-   * @param {string} certName cert name to resolve
+   * @param {string} certName or sub domain name to resolve
    * @returns {string} acm certificate arn
    */
   async getCertificateArn(certName) {
-    let certificateArn;
+    // reduce risk for names
+    const fixCertName = (crt) => {
+      if (crt.startsWith('*.')) return crt.substring(2);
+      if (crt.startsWith('.')) return crt.substring(1);
+      return crt;
+    };
 
+    const inCertificate = fixCertName(certName);
+
+    this.log(`Fetching certificate arn id for certificate name "${certName}"`);
+    const acmCertsList = await this.fetchAcmCerts();
+
+    const certs = acmCertsList.filter((crt) =>
+      inCertificate.endsWith(fixCertName(crt.DomainName))
+    );
+
+    if (_.isEmpty(certs)) {
+      let msg = '';
+      msg += 'AWS_ACM_CERT_NOT_FOUND:';
+      msg += `Could not found your certificate for domain "${certName}"`;
+      msg += 'Please go to aws console => acm.. and review';
+      throw new Error(msg);
+    }
+
+    // match with the most long cert for this new domain.
+    const cert = certs.reduce((a, b) =>
+      a.DomainName.length > b.DomainName.length ? a : b
+    );
+
+    const { CertificateArn } = cert;
+    this.log(`SSL Certificate arn: ${CertificateArn}`);
+
+    return CertificateArn;
+  }
+
+  /**
+   * Fetch Aws Acm Certificate List
+   *
+   * @returns {array} Certificate List
+   */
+  async fetchAcmCerts() {
     const creds = this.getAwsCredentials();
     const awsAcm = new this.serverless.providers.aws.sdk.ACM(creds);
-    this.log(`Fetching certificate arn id for certificate name "${certName}"`);
+    let acmCerts;
 
     try {
-      const rawCerts = await awsAcm.listCertificates({}).promise();
-      const certs = rawCerts.CertificateSummaryList;
-      const cert = certs.find((crt) => crt.DomainName.includes(certName));
-
-      if (cert) {
-        certificateArn = cert.CertificateArn;
-        this.log(`SSL Certificate arn: ${certificateArn}`);
-      }
+      acmCerts = await awsAcm.listCertificates({}).promise();
     } catch (err) {
-      throw new Error('could not fetch acm certificates list');
+      throw new Error('AWS_ACM_CERTS: Could not fetch acm certificates list');
     }
 
-    if (!certificateArn) {
-      throw new Error(`arn certificate not found for domain "${certName}"`);
-    }
-
-    return certificateArn;
+    return acmCerts.CertificateSummaryList;
   }
 
   /**
    * Get hosted zone id for subdomain name
    *
-   * @param {string} domainName domain name
+   * @param {string} subdomain subdomain name
    * @returns {string } zone id
    */
-  async getHostedZoneId(domainName) {
+  async getHostedZoneId(subdomain) {
     let zoneId;
+    let newDomain = subdomain;
+
+    if (newDomain.endsWith('.')) newDomain = newDomain.slice(0, -1);
 
     const creds = await this.getAwsCredentials();
     this.awsRoute53 = new this.serverless.providers.aws.sdk.Route53(creds);
-    this.log(`Fetching hosted zone id for domain name "${domainName}"`);
+    this.log(`Fetching hosted zone id for subdomain name "${subdomain}"`);
 
     try {
       const zones = await this.awsRoute53.listHostedZones({}).promise();
-      const hzone = zones.HostedZones.find((z) => z.Name.includes(domainName));
+      const hzone = zones.HostedZones.find((z) => {
+        let currentZone = z.Name;
+        if (currentZone.endsWith('.')) currentZone = currentZone.slice(0, -1);
+        return newDomain.includes(currentZone);
+      });
 
       if (hzone) {
         [, , zoneId] = hzone.Id.split('/');
       }
     } catch (err) {
-      throw new Error('could not fetch route53 HostedZones list');
+      throw new Error('Could not fetch route53 HostedZones list');
     }
 
     if (!zoneId) {
-      throw new Error('zone not found');
+      let msg = '';
+
+      msg += 'HOSTED_ZONE_NOT_FOUND:';
+      msg += 'To create a route53 record is required a hosted zone.';
+      msg += `You need to create a hosted zone from subdomain "${subdomain}". `;
+      msg += 'Or check your subdomain name is right.';
+      throw new Error(msg);
     }
 
     this.log(`Zone id: ${zoneId}`);
