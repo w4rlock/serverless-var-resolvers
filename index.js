@@ -6,7 +6,6 @@ const LOG_PREFFIX = '[ServerlessVarsResolver] -';
 class ServerlessVarsResolver extends BaseServerlessPlugin {
   constructor(serverless, options) {
     super(serverless, options, LOG_PREFFIX, 'varsResolver');
-    this.cachedVaultRequest = {};
 
     const commonResolver = {
       serviceName: 'ServerlessVarsResolver',
