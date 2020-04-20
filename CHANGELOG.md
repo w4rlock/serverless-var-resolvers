@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.2.2](https://github.com/w4rlock/serverless-var-resolvers/compare/1.2.1...1.2.2) (2020-04-20)
+
+
+### Features
+
+* refactor ([09556a2](https://github.com/w4rlock/serverless-var-resolvers/commit/09556a29a05822c3d3ff3885dc62171cf9a71d9f))
+
+
+### Bug Fixes
+
+* comment ([b757a91](https://github.com/w4rlock/serverless-var-resolvers/commit/b757a91a0b4beb5ed2b4db79d236c48f7d710e32))
+
 ### [1.2.1](https://github.com/w4rlock/serverless-var-resolvers/compare/1.2.0...1.2.1) (2020-04-16)
 
 
